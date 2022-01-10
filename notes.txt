@@ -24,5 +24,7 @@ npx hardhat
 
 -> setting up hardhat.config.js and adding networks to infura endpoint
 
+required to install metamask for browser
+
 
 
