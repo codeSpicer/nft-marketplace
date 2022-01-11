@@ -45,3 +45,4 @@ artifacts
 
 notes.txt
 .secret
+.gitignore
