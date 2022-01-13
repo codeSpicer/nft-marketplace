@@ -26,5 +26,6 @@ npx hardhat
 
 required to install metamask for browser
 
-
+npx hardhat test 
+-> to run test file
 
