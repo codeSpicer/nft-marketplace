@@ -2,16 +2,17 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
+// import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/security/reentrancyGuard.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol"; // prevents reentry attack
 
 contract NFTMarket is ReentrancyGuard {
     using Counters for Counters.Counter;
     Counters.Counter private _itemIds;
-    Counters.Counter private _itemsSold;
+    Counters.Counter private _itemsSold; // counters is similar to uint but safe to use
 
-    address payable owner;
-    uint256 listingPrice = 0.025 ether; // actual price will be in matic token
+    address payable owner; // address of who makes commision from the sales
+    uint256 listingPrice = 0.025 ether; // people who list item needs to pay // actual price will be in matic token
 
     constructor() {
         owner = payable(msg.sender);
@@ -19,7 +20,7 @@ contract NFTMarket is ReentrancyGuard {
 
     struct MarketItem {
         uint256 itemId;
-        address nftContract;
+        address nftContract; // contract address of deployed NFT.sol
         uint256 tokenId;
         address payable seller;
         address payable owner;
@@ -27,7 +28,7 @@ contract NFTMarket is ReentrancyGuard {
         bool sold;
     }
 
-    mapping(uint256 => MarketItem) private idToMarketItem;
+    mapping(uint256 => MarketItem) private idToMarketItem; // to fecth an marketItem using its itemId
 
     event MarketItemCreated(
         uint256 indexed itemId,
@@ -48,15 +49,16 @@ contract NFTMarket is ReentrancyGuard {
         uint256 tokenId,
         uint256 price
     ) public payable nonReentrant {
-        require(price > 0, "Price must be at least 1 wei");
+        require(price > 0.001 ether, "Price must be at 0.001 eth");
         require(
-            msg.value == listingPrice,
+            msg.value == listingPrice, // locks in the listing price from the user who wants to sell nft
             "Price must be equal to listing price"
         );
 
         _itemIds.increment();
         uint256 itemId = _itemIds.current();
 
+        // to store the general information about market item in the mapping
         idToMarketItem[itemId] = MarketItem(
             itemId,
             nftContract,
@@ -67,8 +69,10 @@ contract NFTMarket is ReentrancyGuard {
             false
         );
 
+        // takes the ownership from the person listing and gives it to the contract so that it can give it to the buyer
         IERC721(nftContract).transferFrom(msg.sender, address(this), tokenId);
 
+        // for the frontend
         emit MarketItemCreated(
             itemId,
             nftContract,
@@ -80,6 +84,7 @@ contract NFTMarket is ReentrancyGuard {
         );
     }
 
+    // to buy token someone will call this function
     function createMarketSale(address nftContract, uint256 itemId)
         public
         payable
@@ -87,26 +92,27 @@ contract NFTMarket is ReentrancyGuard {
     {
         uint256 price = idToMarketItem[itemId].price;
         uint256 tokenId = idToMarketItem[itemId].tokenId;
+
         require(
-            msg.value == price,
+            msg.value == price, // checks if the buyer has payed exact amount
             "please submit the asking price in order to purchase"
         );
 
-        idToMarketItem[itemId].seller.transfer(msg.value);
-        IERC721(nftContract).transferFrom(address(this), msg.sender, tokenId);
-        idToMarketItem[itemId].owner = payable(msg.sender);
-        _itemsSold.increment();
-        payable(owner).transfer(listingPrice);
+        idToMarketItem[itemId].seller.transfer(msg.value); // give the price of nft to the seller
+        IERC721(nftContract).transferFrom(address(this), msg.sender, tokenId); // give the ownership of the the nft to the buyer
+        idToMarketItem[itemId].owner = payable(msg.sender); // sets the owner of the nft in the mapping
+        _itemsSold.increment(); // +1 on the count of sold items
+        payable(owner).transfer(listingPrice); // owner of the contract gets the listing price of the nft that the seller sent
     }
 
     function fetchMarketItems() public view returns (MarketItem[] memory) {
         /*
-        function that returns all the NFTs that have not been purchased
+        returns unsold items
         */
 
         uint256 itemCount = _itemIds.current();
-        uint256 unsoldItemCount = _itemIds.current() - _itemsSold.current();
-        uint256 currentIndex = 0;
+        uint256 unsoldItemCount = _itemIds.current() - _itemsSold.current(); // number of unsold items
+        uint256 currentIndex = 0; // counter for the unsold items
 
         MarketItem[] memory items = new MarketItem[](unsoldItemCount);
 
